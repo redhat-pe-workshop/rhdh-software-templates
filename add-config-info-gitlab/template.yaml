@@ -101,5 +101,5 @@ spec:
   output:
     links:
       - url: ${{ steps.publishMergeRequest.output.mergeRequestUrl }}
-        title: 'Click to open the Merge Request; the component will be auto-registeres and appear in the catalogue shortly after'
+        title: 'Click to open the Merge Request; the component will be imported into the catalogue shortly after'
   
