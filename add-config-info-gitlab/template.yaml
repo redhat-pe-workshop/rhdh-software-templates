@@ -86,7 +86,7 @@ spec:
           applicationType: ${{ parameters.componentType }}
           owner: ${{ parameters.componentOwner }}
 
-  - id: publishMergeRequest
+    - id: publishMergeRequest
       name: Open PR with catalog-info.yaml
       action: publish:gitlab:merge-request
       input: 
