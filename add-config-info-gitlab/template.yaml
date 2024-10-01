@@ -1,0 +1,105 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-catalog-info
+  title: create-catalog-info
+  description: create-catalog-info
+  tags:
+    - import
+    - catalog
+    - register
+spec:
+  owner: parasol-authors
+  system: parasol-rhdh
+  type: template
+
+  parameters:
+    - title: Provide information about the Repository location
+      required:
+        - gitlabHost
+        - gitlabOrganization
+        - repositoryName
+      properties:
+        gitlabHost:
+          title: Gitlab hostname
+          type: string
+          description: Your gitlab
+          default: {{ gitlab_host }}
+        gitlabOrganization:
+          title: GitLab Organization
+          type: string
+          default: {{ gitlab_destination_group }}
+        repositoryName:
+          title: Repository name
+          type: string
+
+        branchName:
+          title: Branch name for PR
+          type: string
+          default: catalog-info-patch
+
+    - title: Provide information about the new component
+      required:
+        - componentOwner
+        - componentType
+        - componentLifecycle
+      properties:
+        componentName:
+          title: Component Name
+          type: string
+          description: Name of the created component. If leaved empty the name of the repository will be used.
+          default: 
+        componentOwner:
+          title: Owner
+          description: Select an owner from the list or enter a reference to a Group or a User
+          type: string
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind:
+                - Group
+                - User
+        componentType:
+          title: Type
+          type: string
+          description: 'The type of component. Well-known and common values: service, website, library.'
+          default: service
+        componentLifecycle:
+          title: Lifecycle
+          type: string
+          description: 'The lifecycle state of the component. Well-known and common values: experimental, production, deprecated.'
+          default: experimental
+
+  steps:
+
+    - id: catalogTemplate
+      name: Create catalog-info.yaml file
+      action: fetch:template
+      input:
+        url: ./template
+        targetPath: .
+        values:
+          componentName: ${{ parameters.componentName }}
+          orgName: ${{ parameters.gitlabOrganization }}
+          repoName: ${{ parameters.repositoryName }}
+          componentLifecycle: ${{ parameters.componentLifecycle }}
+          applicationType: ${{ parameters.componentType }}
+          owner: ${{ parameters.componentOwner }}
+
+  - id: publishMergeRequest
+      name: Open PR with catalog-info.yaml
+      action: publish:gitlab:merge-request
+      input: 
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.repositoryName }}&owner=${{ parameters.gitlabOrganization }}
+        title: Open PR with catalog-info.yaml
+        description: Open PR with catalog-info.yaml
+        branchName: ${{ parameters.branchName }}
+        commitAction: create
+        removeSourceBranch: true
+
+  
+  output:
+    links:
+      - url: ${{ steps.publishMergeRequest.output.mergeRequestUrl }}
+        title: 'Click to open the Merge Request; the component will be auto-registeres and appear in the catalogue shortly after'
+  
