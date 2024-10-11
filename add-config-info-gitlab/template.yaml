@@ -1,9 +1,9 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: new-cat
-  title: new-cat
-  description: new-cat
+  name: import-existing-app
+  title: Import Existing App
+  description: Import existing application, autocreate config-info.yaml and conditionally setup techdocs
   tags:
     - import
     - catalog
