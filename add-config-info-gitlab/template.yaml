@@ -1,9 +1,9 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: import-existing-app
-  title: Import Existing App
-  description: Import existing application, autocreate config-info.yaml and conditionally setup techdocs
+  name: import-existing-app-uber-catalog
+  title: Import Existing App to Uber Catalog
+  description: Import existing application, autocreate config-info.yaml and conditionally setup techdocs.
   tags:
     - import
     - catalog
@@ -14,7 +14,22 @@ spec:
   type: template
 
   parameters:
-    - title: Provide information about the Repository location
+    - title: Provide information about Uber Catalog
+      properties:
+        uberGitlabHost:
+          title: Gitlab hostname
+          type: string
+          description: Your gitlab
+          default: gitlab-gitlab.apps.sno.sandbox2280.opentlc.com
+        uberGitlabOrganization:
+          title: GitLab Organization
+          type: string
+          default: rhdh
+        uberRepositoryName:
+          title: Repository name
+          type: string
+
+    - title: Provide information about the Repository location of your existing app
       required:
         - gitlabHost
         - gitlabOrganization
@@ -24,7 +39,7 @@ spec:
           title: Gitlab hostname
           type: string
           description: Your gitlab
-          default: {{ gitlab_host }}
+          default: gitlab-gitlab.apps.sno.sandbox2280.opentlc.com
         gitlabOrganization:
           title: GitLab Organization
           type: string
@@ -32,10 +47,6 @@ spec:
         repositoryName:
           title: Repository name
           type: string
-        branchName:
-          title: Branch name for PR
-          type: string
-          default: catalog-info-patch
 
     - title: Provide information about the new component
       required:
@@ -76,48 +87,75 @@ spec:
           default: experimental
 
   steps:
-
+  
+    # Step2: Create catalog-info file for the component
     - id: catalogTemplate
-      name: Create catalog-info.yaml file
+      name: Fetch catalog-info  template
       action: fetch:template
       input:
-        url: ./template
-        targetPath: .
+        url: ./templates
+        targetPath: ./patch
         values:
+          applicationType: ${{ parameters.componentType }}
+          component_id: ${{ parameters.componentName }}
           componentName: ${{ parameters.componentName }}
+          componentLifecycle: ${{ parameters.componentLifecycle }}
+          description: ${{ parameters.description }}
+          destination: ${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.repositoryName }}
+          host: ${{ parameters.gitlabHost }}
+          owner: ${{ parameters.componentOwner }}
           orgName: ${{ parameters.gitlabOrganization }}
           repoName: ${{ parameters.repositoryName }}
-          componentLifecycle: ${{ parameters.componentLifecycle }}
-          applicationType: ${{ parameters.componentType }}
-          owner: ${{ parameters.componentOwner }}
 
-    - id: addTechDocsStep
-      name: Add TechDocs skeleton to the repo
-      if: ${{ parameters.addTechDocs == true}}
-      action: fetch:template
-      input:
-        url: ./techdocs
-        targetPath: .
-        values:
-          component_id: ${{ parameters.componentName }}
-          description: ${{ parameters.description }}
-          owner: ${{ parameters.componentOwner }}
-          host: ${{ parameters.gitlabHost }}
-          destination: ${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.repositoryName }}
-
-
-    - id: publishMergeRequest
-      name: Open PR with catalog-info.yaml
+    
+    # Merge catalog-info and techdocs into EXISTING repo   - only EXISTING REPO
+    - id: publishComponentMergeRequest
+      name: Open PR with for all-catalog
       action: publish:gitlab:merge-request
       input: 
-        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.repositoryName }}&owner=${{ parameters.gitlabOrganization }}
+        repoUrl: ${{ parameters.uberGitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
         title: Open PR with catalog-info.yaml
         description: Open PR with catalog-info.yaml
-        branchName: ${{ parameters.branchName }}
+        branchName: ${{ parameters.componentName }}-create
+        sourcePath: ./patch
+        targetPath: ./${{ parameters.componentName }}
         commitAction: create
-        removeSourceBranch: true
+        removeSourceBranch: true    
+
 
   
+
+    - id: fetch-uber=repo
+      name: Fetch uber catalog repo
+      action: fetch:template
+      targetPath: ../.
+      input:
+        url: https://${{ parameters.uberGitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}
+        
+    - id: append-file
+      name: Append To File Or Create New
+      action: roadiehq:utils:fs:append
+      input:
+        path: ./uber-catalog/all-catalog.yaml
+        content: "\n    - ../${{ parameters.componentName }}/catalog-info.yaml "
+
+    # Merge ubercatalog  into EXISTING repo  - only EXISTING REPO
+    - id: publishUberCatalogMergeRequest
+      name: Open PR with all-catalog.yaml
+      action: publish:gitlab:merge-request
+      input: 
+        repoUrl: ${{ parameters.uberGitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
+        commitMessage: Commit for component ${{ parameters.componentName }}
+        title: Open PR for update to Uber catalog
+        description: Open PR with catalog-info.yaml
+        sourcePath: ./uber-catalog
+        targetPath: ./uber-catalog
+        commitAction: update
+        branchName: ubercatalog-${{ parameters.componentName }}-update
+        removeSourceBranch: true
+
+
+
   output:
     links:
       - url: ${{ steps.publishMergeRequest.output.mergeRequestUrl }}
