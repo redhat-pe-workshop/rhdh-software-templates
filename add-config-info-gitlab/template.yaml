@@ -15,12 +15,16 @@ spec:
 
   parameters:
     - title: Provide information about Uber Catalog
+      required:
+        - gitlabHost
+        - uberGitlabOrganization
+        - uberRepositoryName
       properties:
-        uberGitlabHost:
+        gitlabHost:
           title: Gitlab hostname
           type: string
           description: Your gitlab
-          default: gitlab-gitlab.apps.sno.sandbox2280.opentlc.com
+          default: {{ gitlab_host }}
         uberGitlabOrganization:
           title: GitLab Organization
           type: string
@@ -28,18 +32,13 @@ spec:
         uberRepositoryName:
           title: Repository name
           type: string
+          description: Please ensure this repo exists
 
-    - title: Provide information about the Repository location of your existing app
+    - title: Provide information about your existing app
       required:
-        - gitlabHost
         - gitlabOrganization
         - repositoryName
       properties:
-        gitlabHost:
-          title: Gitlab hostname
-          type: string
-          description: Your gitlab
-          default: gitlab-gitlab.apps.sno.sandbox2280.opentlc.com
         gitlabOrganization:
           title: GitLab Organization
           type: string
@@ -47,8 +46,9 @@ spec:
         repositoryName:
           title: Repository name
           type: string
+          description: Please ensure this repo exists
 
-    - title: Provide information about the new component
+    - title: Provide information about the new component for your existing app
       required:
         - componentOwner
         - componentType
@@ -57,8 +57,8 @@ spec:
         componentName:
           title: Component Name
           type: string
-          description: Name of the created component. If leaved empty the name of the repository will be used.
-          default: 
+          description: Name of the component. (Defaults to the repo name)
+          default: ${{ parameters.repositoryName }}
         componentOwner:
           title: Owner
           description: Select an owner from the list or enter a reference to a Group or a User
@@ -158,6 +158,8 @@ spec:
 
   output:
     links:
-      - url: ${{ steps.publishMergeRequest.output.mergeRequestUrl }}
-        title: 'Click to open the Merge Request; the component will be auto-registered and appear in the catalogue shortly after'
+      - url: ${{ steps.publishComponentMergeRequest.output.mergeRequestUrl }}
+        title: 'Component merge request'
+      - url: ${{ steps.publishUberCatalogMergeRequest.output.mergeRequestUrl }}
+        title: 'Uber catalog update merge request'
   
