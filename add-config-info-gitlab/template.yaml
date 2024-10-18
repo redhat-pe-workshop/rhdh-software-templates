@@ -24,7 +24,7 @@ spec:
           title: Gitlab hostname
           type: string
           description: Your gitlab
-          default: {{ gitlab_host }}
+          default: gitlab-gitlab.apps.sno.sandbox1887.opentlc.com
         uberGitlabOrganization:
           title: GitLab Organization
           type: string
@@ -58,7 +58,7 @@ spec:
           title: Component Name
           type: string
           description: Name of the component. (Defaults to the repo name)
-          default: ${{ parameters.repositoryName }}
+          default: 
         componentOwner:
           title: Owner
           description: Select an owner from the list or enter a reference to a Group or a User
@@ -113,7 +113,7 @@ spec:
       name: Open PR with for all-catalog
       action: publish:gitlab:merge-request
       input: 
-        repoUrl: ${{ parameters.uberGitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
         title: Open PR with catalog-info.yaml
         description: Open PR with catalog-info.yaml
         branchName: ${{ parameters.componentName }}-create
@@ -130,21 +130,21 @@ spec:
       action: fetch:template
       targetPath: ../.
       input:
-        url: https://${{ parameters.uberGitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}
+        url: https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}
         
     - id: append-file
       name: Append To File Or Create New
       action: roadiehq:utils:fs:append
       input:
-        path: ./uber-catalog/all-catalog.yaml
-        content: "\n    - ../${{ parameters.componentName }}/catalog-info.yaml "
+        path: ./uber-catalog/uber-catalog.yaml
+        content: "\n    - https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}/-/blob/main/${{ parameters.repositoryName }}/catalog-info.yaml "
 
     # Merge ubercatalog  into EXISTING repo  - only EXISTING REPO
     - id: publishUberCatalogMergeRequest
       name: Open PR with all-catalog.yaml
       action: publish:gitlab:merge-request
       input: 
-        repoUrl: ${{ parameters.uberGitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
         commitMessage: Commit for component ${{ parameters.componentName }}
         title: Open PR for update to Uber catalog
         description: Open PR with catalog-info.yaml
