@@ -1,0 +1,95 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: onboard-new-components-envelope
+  title: Add a new Catalog Envelope to RHDH
+  description: Add a new Catalog Envelope for setting up a new Application to RHDH
+  tags:
+    - import
+    - catalog
+    - register
+spec:
+  owner: rhdh
+  system: rhdh
+  type: template
+
+  parameters:
+    - title: Provide information about Application Catalog Envelope. 
+      required:
+        - gitlabHost
+        - allEnvelopesGitlabOrg
+        - allEnvelopesRepo
+      properties:
+        gitlabHost:
+          title: Gitlab hostname
+          type: string
+          description: Your gitlab host
+          default: {{ gitlab_host }}
+            enum:
+              - {{ gitlab_host }}
+        allEnvelopesGitlabOrg:
+          title: GitLab Organization
+          type: string
+          default: {{ gitlab_destination_group }}
+            enum:
+              - {{ gitlab_destination_group }}
+        allEnvelopesRepo:
+          title: Repository name of the Envelope List for all components
+          type: string
+          description: Please ensure this repo exists and contains a Location file named `all-envelope.yaml`, and is part of RHDH app-config
+
+    - title: Provide information about the application envelope repository
+      required:
+        - appEnvelopeGitlabOrg
+        - appEnvelopeRepo
+      properties:
+        appEnvelopeGitlabOrg:
+          title: GitLab Organization
+          type: string
+          default: {{ gitlab_destination_group }}
+            enum:
+              - {{ gitlab_destination_group }}
+        appEnvelopeRepo:
+          title: Repository name
+          type: string
+          description: Please ensure this repo exists
+          
+
+  steps:
+  
+    - id: fetch-envelope-repo
+      name: Fetch envelope catalog repo
+      action: fetch:template
+      targetPath: ../.
+      input:
+        url: https://${{ parameters.gitlabHost }}/${{ parameters.allEnvelopesGitlabOrg }}/${{ parameters.allEnvelopesRepo }}
+        
+    - id: append-file
+      name: Append To File Or Create New
+      action: roadiehq:utils:fs:append
+      input:
+        path: ./all-envelopes.yaml
+        content: "\n    - https://${{ parameters.gitlabHost }}/${{ parameters.appEnvelopeGitlabOrg }}/${{ parameters.appEnvelopeRepo }}/-/blob/main/envelope.yaml"
+
+    # Merge envelope  into EXISTING repo  - only EXISTING REPO
+    - id: publishAllEnvelopeMergeRequest
+      name: Open PR with envelope.yaml
+      action: publish:gitlab:merge-request
+      input: 
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.allEnvelopesRepo }}&owner=${{ parameters.allEnvelopesGitlabOrg }}
+        commitMessage: Commit for component ${{ parameters.appEnvelopeRepo }}
+        title: Open PR for update to Uber catalog
+        description: Open PR with catalog-info.yaml
+        sourcePath: ./
+        targetPath: ./
+        commitAction: update
+        branchName: update-${{ parameters.appEnvelopeRepo }}
+        removeSourceBranch: true
+
+
+
+  output:
+    links:
+      - url: ${{ steps.publishAllEnvelopeMergeRequest.output.mergeRequestUrl }}
+        title: 'All Envelope Catalog Update merge request'
+  

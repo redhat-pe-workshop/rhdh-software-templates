@@ -1,8 +1,8 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: import-existing-app-uber-catalog
-  title: Import Existing App to Uber Catalog
+  name: import-existing-app-envelope-catalog
+  title: Import Existing App to Catalog Envelope
   description: Import existing application, autocreate config-info.yaml and conditionally setup techdocs.
   tags:
     - import
@@ -17,19 +17,23 @@ spec:
     - title: Provide information about Uber Catalog
       required:
         - gitlabHost
-        - uberGitlabOrganization
-        - uberRepositoryName
+        - envelopeGitlabOrganization
+        - envelopeRepositoryName
       properties:
         gitlabHost:
           title: Gitlab hostname
           type: string
           description: Your gitlab
-          default: gitlab-gitlab.apps.sno.sandbox1887.opentlc.com
-        uberGitlabOrganization:
+          default: {{ gitlab_host }}
+            enum:
+              - {{ gitlab_host }}
+        envelopeGitlabOrganization:
           title: GitLab Organization
           type: string
-          default: rhdh
-        uberRepositoryName:
+          default: {{ gitlab_destination_group }}
+            enum:
+              - {{ gitlab_destination_group }}
+        envelopeRepositoryName:
           title: Repository name
           type: string
           description: Please ensure this repo exists
@@ -42,7 +46,9 @@ spec:
         gitlabOrganization:
           title: GitLab Organization
           type: string
-          default: rhdh
+          default: {{ gitlab_destination_group }}
+            enum:
+              - {{ gitlab_destination_group }}
         repositoryName:
           title: Repository name
           type: string
@@ -88,6 +94,37 @@ spec:
 
   steps:
   
+
+    - id: fetch-envelope=repo
+      name: Fetch envelope catalog repo
+      action: fetch:template
+      targetPath: ../.
+      input:
+        url: https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.envelopeRepositoryName }}
+        
+    - id: append-file
+      name: Append To File Or Create New
+      action: roadiehq:utils:fs:append
+      input:
+        path: ./envelope.yaml
+        content: "\n    - https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.envelopeRepositoryName }}/-/blob/main/${{ parameters.repositoryName }}/catalog-info.yaml"
+
+    # Merge envelope  into EXISTING repo  - only EXISTING REPO
+    - id: publishUberCatalogMergeRequest
+      name: Open PR with envelope.yaml
+      action: publish:gitlab:merge-request
+      input: 
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.envelopeRepositoryName }}&owner=${{ parameters.envelopeGitlabOrganization }}
+        commitMessage: Commit for component ${{ parameters.componentName }}
+        title: Open PR for update to Uber catalog
+        description: Open PR with catalog-info.yaml
+        sourcePath: ./
+        targetPath: ./
+        commitAction: update
+        branchName: envelope-${{ parameters.componentName }}-update
+        removeSourceBranch: true
+
+
     # Step2: Create catalog-info file for the component
     - id: catalogTemplate
       name: Fetch catalog-info  template
@@ -113,7 +150,7 @@ spec:
       name: Open PR with for all-catalog
       action: publish:gitlab:merge-request
       input: 
-        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
+        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.envelopeRepositoryName }}&owner=${{ parameters.envelopeGitlabOrganization }}
         title: Open PR with catalog-info.yaml
         description: Open PR with catalog-info.yaml
         branchName: ${{ parameters.componentName }}-create
@@ -124,37 +161,6 @@ spec:
 
 
   
-
-    - id: fetch-uber=repo
-      name: Fetch uber catalog repo
-      action: fetch:template
-      targetPath: ../.
-      input:
-        url: https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}
-        
-    - id: append-file
-      name: Append To File Or Create New
-      action: roadiehq:utils:fs:append
-      input:
-        path: ./uber-catalog/uber-catalog.yaml
-        content: "\n    - https://${{ parameters.gitlabHost }}/${{ parameters.gitlabOrganization }}/${{ parameters.uberRepositoryName }}/-/blob/main/${{ parameters.repositoryName }}/catalog-info.yaml "
-
-    # Merge ubercatalog  into EXISTING repo  - only EXISTING REPO
-    - id: publishUberCatalogMergeRequest
-      name: Open PR with all-catalog.yaml
-      action: publish:gitlab:merge-request
-      input: 
-        repoUrl: ${{ parameters.gitlabHost }}?repo=${{ parameters.uberRepositoryName }}&owner=${{ parameters.uberGitlabOrganization }}
-        commitMessage: Commit for component ${{ parameters.componentName }}
-        title: Open PR for update to Uber catalog
-        description: Open PR with catalog-info.yaml
-        sourcePath: ./uber-catalog
-        targetPath: ./uber-catalog
-        commitAction: update
-        branchName: ubercatalog-${{ parameters.componentName }}-update
-        removeSourceBranch: true
-
-
 
   output:
     links:
